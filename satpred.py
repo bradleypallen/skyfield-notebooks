@@ -33,14 +33,6 @@ def find_minimum(t0, t1, f, epsilon=EXTREMUM_SEARCH_EPSILON, num=EXTREMUM_SEARCH
 def find_maximum(t0, t1, f, epsilon=EXTREMUM_SEARCH_EPSILON, num=EXTREMUM_SEARCH_NUM_POINTS):
     return find_extremum(t0, t1, np.argmax, f, epsilon, num)
 
-# Return the name of a direction given an azimuth in degrees.
-# Used to mimic the way azimuth directions are rported in Heavens Above pass prediction tables.
-
-def direction(degrees_az):
-    degrees = np.asarray(DIRECTION_DEGREES)
-    idx = (np.abs(degrees - degrees_az)).argmin()
-    return DIRECTION_NAMES[idx]
-
 # Functions for detemining whether a satellite is in eclipse in a particular time in a pass.
 # Based on the method described in https://www.celestrak.com/columns/v03n01/, "Visually Observing Earth Satellites".
 
@@ -110,9 +102,15 @@ def satellite_pass(topos, satellite, earth, sun, visible=True):
     sat_observable.rough_period = SATELLITE_PASS_ROUGH_PERIOD
     return sat_observable
 
-# Functions to generate lists of dicts, each dict describing a satellite pass.
-# - passes returns a list of dicts with Skyfield Times and Positions by default
-# - prettify_pass adds additional values for human-readable display
+# Function to generate lists of dicts, each dict describing a satellite pass.
+
+# Return the name of a direction given an azimuth in degrees.
+# Used to mimic the way azimuth directions are rported in Heavens Above pass prediction tables.
+
+def direction(degrees_az):
+    degrees = np.asarray(DIRECTION_DEGREES)
+    idx = (np.abs(degrees - degrees_az)).argmin()
+    return DIRECTION_NAMES[idx]
 
 def prettify_pass(pass_dict, timezone_str):
     start_local_datetime = pass_dict['start_time'].astimezone(timezone(timezone_str))
@@ -121,6 +119,7 @@ def prettify_pass(pass_dict, timezone_str):
     end_alt, end_az, end_d = pass_dict['end_position'].altaz('standard')
     pretty_dict = {
         'date': start_local_datetime.isoformat(' ', timespec='seconds')[:11],
+        'timezone': timezone_str,
         'start': start_local_datetime.isoformat(' ', timespec='seconds')[11:19],
         'start_alt': int(np.round(start_alt.degrees)),
         'start_az': direction(start_az.degrees),
@@ -135,7 +134,6 @@ def prettify_pass(pass_dict, timezone_str):
         'end_d': int(np.round(end_d.km))
     }
     pass_dict.update(pretty_dict)
-
 
 def passes(t0, t1, topos, satellite, earth, sun, visible=True, pretty=False):
     t, y = almanac.find_discrete(t0, t1, satellite_pass(topos, satellite, earth, sun, visible))
