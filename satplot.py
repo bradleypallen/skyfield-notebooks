@@ -2,24 +2,24 @@ import numpy as np
 import matplotlib.pyplot as plt
 from skyfield.api import Star
 
-def magnitude_to_marker_size(mag):
-    if mag < -1.:
-        return 120
-    elif mag < 0.:
-        return 100
-    elif mag < 0.5:
-        return 80
-    elif mag < 1.:
-        return 65
-    elif mag < 3.:
-        return 40
-    elif mag < 4.:
-        return 10
-    elif mag < 5.:
-        return 5
-    else:
-        return 4
+# Based on the approach outlined in the Millenium Star Atlas, vol. 1, p. xi.
 
+def magnitude_to_marker_size(v):
+    if v <= -1.:
+        return 132.
+    elif v <= 0.0:
+        return 112.
+    elif v <= 0.5:
+        return 92.
+    elif v <= 1.:
+        return 72.
+    elif v <= 1.5:
+        return 52.
+    else:
+        if v <= 2.:
+            v = 2.0
+        return 1.52 ** (10. ** (0.135*(8.7-v)))
+            
 def satellite_pass_chart(sat_pass, ephemeris, bright_stars):
     ts = sat_pass['start_time'].ts
     jd0, jd1 = sat_pass['start_time'].tt, sat_pass['end_time'].tt
