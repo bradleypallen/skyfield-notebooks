@@ -10,10 +10,10 @@ contains a number of notebooks I am currently working on.
 ## Learning Skyfield
 
 This notebook contains some initial looks at almanac calculations, use
-of the Hipparcos star catalog, and plotting star fields.
+of the Hipparcos star catalog, and plotting star fields. Consider this
+as a scratchpad.
 
 ## Satellite Predictions Using Skyfield
 
-This notebook attempts to recreate the satellite pass tables that the Heavens Above website generates.
-
-
+This notebook attempts to recreate the satellite pass tables and charts that
+the Heavens Above website generates.

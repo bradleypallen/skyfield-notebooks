@@ -1,95 +1,143 @@
+# -*- coding: utf-8 -*-
+"""satplot.py
+
+A Python module for generating data about satellite passes for
+a given satellite and observer.
+
+Todo:
+    * RA/dec displays of satellite passes.
+
+"""
+
+
 import numpy as np
 import matplotlib.pyplot as plt
 from skyfield.api import Star
 
-# Convert visual magnitude to a size for a matplotlib plot marker.
-# I fit a few hand-curated examples of marker sizes for magnitudes to
-# a third-degree polynomial with the following code:
-#
-#    >>> x = np.array([-1.44, -0.5, 0., 1., 2., 3., 4., 5.])
-#    >>> y = np.array([120., 90., 60., 30., 15., 11., 6., 1.])
-#    >>> coeffs = np.polyfit(x, y, 3)
-#
-# This function is used over the range -2.0 < v <= 6.0; v < -2.0 returns
-# size = 160. and v > 6.0 returns size = 1.
 
-def magnitude_to_marker_size(v):
-    if v < -2.0:
-        return 160.0
-    elif v > 6.0:
-        return 1.0
+SAT_PASS_NUM_PLOT_POINTS = 16
+
+
+def magnitude_to_marker_size(v_mag):
+    """Returns a float to be used as the size of a matplotlib plot marker representing
+    an object with a given visual megnitude.
+
+    A third-degree polynomial was fit to a few hand-curated examples of
+    marker sizes for magnitudes, using the following code:
+
+    >>> x = np.array([-1.44, -0.5, 0., 1., 2., 3., 4., 5.])
+    >>> y = np.array([120., 90., 60., 30., 15., 11., 6., 1.])
+    >>> coeffs = np.polyfit(x, y, 3)
+
+    This function is valid over the range -2.0 < v <= 6.0; v < -2.0 returns
+    size = 160. and v > 6.0 returns size = 1.
+    """
+    if v_mag < -2.0:
+        size = 160.0
+    elif v_mag > 6.0:
+        size = 1.0
     else:
-        coeffs = [ -0.39439046,   6.21313285, -33.09853387,  62.07732768 ]
-        return coeffs[0] * v**3. + coeffs[1] * v**2. + coeffs[2] * v + coeffs[3]
+        coeffs = [-0.39439046, 6.21313285, -33.09853387, 62.07732768]
+        size = coeffs[0] * v_mag**3. + coeffs[1] * v_mag**2. + coeffs[2] * v_mag + coeffs[3]
+    return size
 
-# Get the pass times for positions to plot
 
-def times_for_satellite_pass(sat_pass):
-    ts = sat_pass['start_time'].ts
-    jd0, jd1 = sat_pass['start_time'].tt, sat_pass['end_time'].tt
-    jd = np.linspace(jd0, jd1, 32)
-    return ts.tt(jd=jd)
+def times_for_satellite_pass(sat_pass, num=SAT_PASS_NUM_PLOT_POINTS):
+    """
+    Returns a sequence of num evenly-spaced times during a satellite pass,
+    starting with the start of the pass and ending with the end of the pass.
+    """
+    timescale = sat_pass['start_time'].ts
+    jd_0, jd_1 = sat_pass['start_time'].tt, sat_pass['end_time'].tt
+    date = np.linspace(jd_0, jd_1, num)
+    return timescale.tt(jd=date)
 
-# Get the satellite's pass positions and alt/az coordinates
 
-def altaz_for_satellite_pass(sat_pass, t):
+def altaz_for_satellite_pass(sat_pass, time):
+    """Returns the alt/az coordinates for the position of the satellite during
+    the pass at a given time
+    """
     difference = sat_pass['satellite'] - sat_pass['topos']
-    topocentric = difference.at(t)
+    topocentric = difference.at(time)
     return topocentric.altaz()
 
-# Get alt/az coordinates and magnitudes for bright stars
-# NOTE: this is an expensive workaround for the fact that
-# Skyfield doesn't handle the one-observer-many-objects case for Apparent.altaz()
-# (see https://github.com/skyfielders/python-skyfield/issues/229)
 
 def altaz_and_mag_for_stars(sat_pass, observer, stars):
-    theta, r, mag = [], [], []
+    """Returns arrays for the altitudes, azimuths and visual magnitudes of
+    bright stars at the start time of a satellite pass.
+
+    NOTE: this is an expensive workaround for the fact that
+    Skyfield doesn't handle the one-observer-many-objects case for Apparent.altaz()
+    (see https://github.com/skyfielders/python-skyfield/issues/229)
+    """
+    theta, r_angle, mag = [], [], []
     for i in range(len(stars)):
         star = Star.from_dataframe(stars.iloc[i])
         app = observer.at(sat_pass['start_time']).observe(star).apparent()
-        alt, az, _ = app.altaz()
-        theta.append(az.radians)
-        r.append(alt.degrees)
+        altitude, azimuth, _ = app.altaz()
+        theta.append(azimuth.radians)
+        r_angle.append(altitude.degrees)
         mag.append(stars.iloc[i]['magnitude'])
-    return np.array(r), np.array(theta), np.array(mag)
+    return np.array(r_angle), np.array(theta), np.array(mag)
 
-# Get alt/az coordinates for ephemeris objects
 
-def altaz_for_ephemeris_objects(observer, object, t):
-    apparent = observer.at(t).observe(object).apparent()
+def altaz_for_ephemeris_objects(observer, obj, time):
+    """Returns the alt/az coordinates for an ephemeris object for a given time
+    during the satellite pass.
+    """
+    apparent = observer.at(time).observe(obj).apparent()
     return apparent.altaz()
 
-# Plot a chart of a satellite pass
 
 def satellite_pass_chart(sat_pass, ephemeris, bright_stars):
+    """Plots a polar-coordinate chart displaying the satellite pass.
+    """
     # Create matplotlib chart with polar projection
-    ax = plt.subplot(111, projection='polar')
-    ax.set_rlim(0, 90)
-    ax.set_theta_zero_location('N')
-    ax.set_theta_direction(1)
-    ax.set_yticks(np.arange(0, 105, 15))
-    ax.set_yticklabels(ax.get_yticks()[::-1])
+    axes = plt.subplot(111, projection='polar')
+    axes.set_rlim(0, 90)
+    axes.set_theta_zero_location('N')
+    axes.set_theta_direction(1)
+    axes.set_yticks(np.arange(0, 105, 15))
+    axes.set_yticklabels(axes.get_yticks()[::-1])
     # Gather visualization data
-    title_line_1 = f"{sat_pass['satellite'].name} {sat_pass['pass_type']} pass on {sat_pass['date']} {sat_pass['start']} - {sat_pass['end']}"
-    title_line_2 = f"View from lat. {sat_pass['topos'].latitude}, long. {sat_pass['topos'].longitude}"
-    title_line_3 = f"TZ {sat_pass['timezone']}, peak app. mag. {sat_pass['peak_magnitude']}"
-    plt.title(f"{title_line_1}\n\n{title_line_2}\n{title_line_3}")
-    t = times_for_satellite_pass(sat_pass)
-    sat_alt, sat_az, _ = altaz_for_satellite_pass(sat_pass, t)
+    line_1a = f"{sat_pass['satellite'].name} {sat_pass['pass_type']}"
+    line_1b = f"pass on {sat_pass['date']} {sat_pass['start']} - {sat_pass['end']}"
+    line_2 = f"View from lat. {sat_pass['topos'].latitude}, long. {sat_pass['topos'].longitude}"
+    line_3 = f"TZ {sat_pass['timezone']}, peak app. mag. {sat_pass['peak_magnitude']}"
+    plt.title(f"{line_1a} {line_1b}\n\n{line_2}\n{line_3}")
+    time = times_for_satellite_pass(sat_pass)
+    sat_alt, sat_az, _ = altaz_for_satellite_pass(sat_pass, time)
     observer = ephemeris['earth'] + sat_pass['topos']
-    sun_alt, sun_az, _ = altaz_for_ephemeris_objects(observer, ephemeris['sun'], sat_pass['start_time'])
-    moon_alt, moon_az, _ = altaz_for_ephemeris_objects(observer, ephemeris['moon'], sat_pass['start_time'])
+    sun_alt, sun_az, _ = altaz_for_ephemeris_objects(observer, ephemeris['sun'],
+                                                     sat_pass['start_time'])
+    moon_alt, moon_az, _ = altaz_for_ephemeris_objects(observer, ephemeris['moon'],
+                                                       sat_pass['start_time'])
     if not sat_pass['pass_type'] == 'daylight':
-        mercury_alt, mercury_az, _ = altaz_for_ephemeris_objects(observer, ephemeris['mercury'], sat_pass['start_time'])
-        venus_alt, venus_az, _ = altaz_for_ephemeris_objects(observer, ephemeris['venus'], sat_pass['start_time'])
-        mars_alt, mars_az, _ = altaz_for_ephemeris_objects(observer, ephemeris['mars'], sat_pass['start_time'])
-        jupiter_alt, jupiter_az, _ = altaz_for_ephemeris_objects(observer, ephemeris['JUPITER BARYCENTER'], sat_pass['start_time'])
-        saturn_alt, saturn_az, _ = altaz_for_ephemeris_objects(observer, ephemeris['SATURN BARYCENTER'], sat_pass['start_time'])
-        stars_alt_degrees, stars_az_radians, stars_v = altaz_and_mag_for_stars(sat_pass, observer, bright_stars)
+        mercury_alt, mercury_az, _ = altaz_for_ephemeris_objects(observer,
+                                                                 ephemeris['mercury'],
+                                                                 sat_pass['start_time'])
+        venus_alt, venus_az, _ = altaz_for_ephemeris_objects(observer,
+                                                             ephemeris['venus'],
+                                                             sat_pass['start_time'])
+        mars_alt, mars_az, _ = altaz_for_ephemeris_objects(observer,
+                                                           ephemeris['mars'],
+                                                           sat_pass['start_time'])
+        jupiter_alt, jupiter_az, _ = altaz_for_ephemeris_objects(observer,
+                                                                 ephemeris['JUPITER BARYCENTER'],
+                                                                 sat_pass['start_time'])
+        saturn_alt, saturn_az, _ = altaz_for_ephemeris_objects(observer,
+                                                               ephemeris['SATURN BARYCENTER'],
+                                                               sat_pass['start_time'])
+        stars_alt_degrees, stars_az_radians, stars_v = altaz_and_mag_for_stars(sat_pass,
+                                                                               observer,
+                                                                               bright_stars)
     # Plot visualization data
     # For visible (i.e., nighttime) passes, plot stars
     if not sat_pass['pass_type'] == 'daylight':
-        plt.scatter(stars_az_radians, 90.-stars_alt_degrees, [ magnitude_to_marker_size(v) for v in stars_v ], 'k')
+        plt.scatter(stars_az_radians,
+                    90.-stars_alt_degrees,
+                    [magnitude_to_marker_size(v) for v in stars_v],
+                    'k')
     # Plot sun and moon on chart
     plt.scatter(sun_az.radians, 90.-sun_alt.degrees, 400, 'y')
     plt.scatter(moon_az.radians, 90.-moon_alt.degrees, 400, 'silver')
