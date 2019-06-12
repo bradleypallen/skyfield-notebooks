@@ -12,10 +12,10 @@ Todo:
 
 import numpy as np
 import matplotlib.pyplot as plt
-from skyfield.api import Star
+from skyfield import api
 
 
-SAT_PASS_NUM_PLOT_POINTS = 16
+SAT_PASS_NUM_PLOT_POINTS = 32
 
 
 def magnitude_to_marker_size(v_mag):
@@ -72,7 +72,7 @@ def altaz_and_mag_for_stars(sat_pass, observer, stars):
     """
     theta, r_angle, mag = [], [], []
     for i in range(len(stars)):
-        star = Star.from_dataframe(stars.iloc[i])
+        star = api.Star.from_dataframe(stars.iloc[i])
         app = observer.at(sat_pass['start_time']).observe(star).apparent()
         altitude, azimuth, _ = app.altaz()
         theta.append(azimuth.radians)

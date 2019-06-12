@@ -12,7 +12,7 @@ Todo:
 
 
 import numpy as np
-from pytz import timezone
+import pytz
 from tzwhere import tzwhere
 from skyfield import almanac, earthlib
 
@@ -204,11 +204,11 @@ def prettify_pass(pass_dict, timezone_str):
     succinctly to a human reader, in emulation of the sort of tables and charts
     in the Heavens Above web site.
     """
-    start_local_datetime = pass_dict['start_time'].astimezone(timezone(timezone_str))
+    start_local_datetime = pass_dict['start_time'].astimezone(pytz.timezone(timezone_str))
     start_alt, start_az, start_d = pass_dict['start_position'].altaz('standard')
-    culm_local_datetime = pass_dict['culmination_time'].astimezone(timezone(timezone_str))
+    culm_local_datetime = pass_dict['culmination_time'].astimezone(pytz.timezone(timezone_str))
     culm_alt, culm_az, culm_d = pass_dict['culmination_position'].altaz('standard')
-    end_local_datetime = pass_dict['end_time'].astimezone(timezone(timezone_str))
+    end_local_datetime = pass_dict['end_time'].astimezone(pytz.timezone(timezone_str))
     end_alt, end_az, end_d = pass_dict['end_position'].altaz('standard')
     pretty_dict = {
         'date': start_local_datetime.isoformat(' ', timespec='seconds')[:11],
