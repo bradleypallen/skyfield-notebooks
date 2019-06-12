@@ -3,20 +3,24 @@ import matplotlib.pyplot as plt
 from skyfield.api import Star
 
 # Convert visual magnitude to a size for a matplotlib plot marker.
-# We fit a few hand-curated examples of sizes for magnitudes to
-# a third-degree polynomial to examples of v to size using the following:
+# I fit a few hand-curated examples of marker sizes for magnitudes to
+# a third-degree polynomial with the following code:
 #
 #    >>> x = np.array([-1.44, -0.5, 0., 1., 2., 3., 4., 5.])
 #    >>> y = np.array([120., 90., 60., 30., 15., 11., 6., 1.])
 #    >>> coeffs = np.polyfit(x, y, 3)
 #
-# We also use v = 5.0 as a ceiling.
+# This function is used over the range -2.0 < v <= 6.0; v < -2.0 returns
+# size = 160. and v > 6.0 returns size = 1.
 
 def magnitude_to_marker_size(v):
-    if v > 5.:
-        v = 5.0
-    coeffs = [ -0.39439046,   6.21313285, -33.09853387,  62.07732768 ]
-    return coeffs[0] * v**3. + coeffs[1] * v**2. + coeffs[2] * v + coeffs[3]
+    if v < -2.0:
+        return 160.0
+    elif v > 6.0:
+        return 1.0
+    else:
+        coeffs = [ -0.39439046,   6.21313285, -33.09853387,  62.07732768 ]
+        return coeffs[0] * v**3. + coeffs[1] * v**2. + coeffs[2] * v + coeffs[3]
 
 # Get the pass times for positions to plot
 
@@ -66,7 +70,10 @@ def satellite_pass_chart(sat_pass, ephemeris, bright_stars):
     ax.set_yticks(np.arange(0, 105, 15))
     ax.set_yticklabels(ax.get_yticks()[::-1])
     # Gather visualization data
-    plt.title(f"{sat_pass['satellite'].name} {sat_pass['pass_type']} pass on {sat_pass['date']} {sat_pass['start']} - {sat_pass['end']}\n\nView from lat. {sat_pass['topos'].latitude}, long. {sat_pass['topos'].longitude}\nTZ {sat_pass['timezone']}, peak app. mag. {sat_pass['peak_magnitude']}")
+    title_line_1 = f"{sat_pass['satellite'].name} {sat_pass['pass_type']} pass on {sat_pass['date']} {sat_pass['start']} - {sat_pass['end']}"
+    title_line_2 = f"View from lat. {sat_pass['topos'].latitude}, long. {sat_pass['topos'].longitude}"
+    title_line_3 = f"TZ {sat_pass['timezone']}, peak app. mag. {sat_pass['peak_magnitude']}"
+    plt.title(f"{title_line_1}\n\n{title_line_2}\n{title_line_3}")
     t = times_for_satellite_pass(sat_pass)
     sat_alt, sat_az, _ = altaz_for_satellite_pass(sat_pass, t)
     observer = ephemeris['earth'] + sat_pass['topos']
