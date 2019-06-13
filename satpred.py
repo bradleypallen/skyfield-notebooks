@@ -24,7 +24,7 @@ DIRECTION_DEGREES = [0.0, 22.5, 45.0, 67.5, 90.0, 112.5, 135.0, 157.5,
 EARTH_RADIUS = earthlib.earth_radius_au
 SUN_RADIUS = 0.00465 # Sun's average radius in AU
 SUN_ALTITUDE_CIVIL_TWILIGHT = -6.
-SAT_LIGHTING_CONDITIONS = ['umbral', 'penumbral', 'annular', 'sunlit']
+PASS_TYPES = ['eclipsed', 'visible', 'daylight']
 SAT_MINIMUM_OBSERVABLE_ALTITUDE = 10.
 SAT_INTRINSIC_MAGNITUDE = -1.3
 SAT_PASS_ROUGH_PERIOD = 0.01
@@ -34,7 +34,7 @@ EXTREMUM_SEARCH_EPSILON = 0.5 / 86400. # A half-second fraction of a Julian day
 
 def find_extremum(t_0, t_1, extremum, function, epsilon=EXTREMUM_SEARCH_EPSILON,
                   num=EXTREMUM_SEARCH_NUM_POINTS):
-    """Returns a global extremum for a function ranging over the time period of a pass.
+    """Find a global extremum for a function ranging over the time period of a pass.
 
     Assumes well-behaved functions with a global extremum and no other local extrema.
 
@@ -61,24 +61,44 @@ def find_extremum(t_0, t_1, extremum, function, epsilon=EXTREMUM_SEARCH_EPSILON,
 
 def find_minimum(t_0, t_1, function, epsilon=EXTREMUM_SEARCH_EPSILON,
                  num=EXTREMUM_SEARCH_NUM_POINTS):
-    """Return global minimum for a function ranging over a ranging over
+    """Find a global minimum for a function ranging over a ranging over
     the time period of a pass.
+
+    Args:
+        t_0: Start time for period to be searched.
+        t_1: End time for period to be searched.
+        function: a function that takes time as its single argument, returning a numeric value.
+        epsilon: a float defining the distance less than which two times will
+            be treated as equal.
+
+    Returns:
+        Two values, the first being the time of the minimum, and the second
+        being the value of the minimum.
     """
     return find_extremum(t_0, t_1, np.argmin, function, epsilon, num)
 
 
 def find_maximum(t_0, t_1, function, epsilon=EXTREMUM_SEARCH_EPSILON,
                  num=EXTREMUM_SEARCH_NUM_POINTS):
-    """Return global maximum for a function ranging over a ranging over
+    """Find a global maximum for a function ranging over a ranging over
     the time period of a pass.
+
+    Args:
+        t_0: Start time for period to be searched.
+        t_1: End time for period to be searched.
+        function: a function that takes time as its single argument, returning a numeric value.
+        epsilon: a float defining the distance less than which two times will
+            be treated as equal.
+
+    Returns:
+        Two values, the first being the time of the maximum, and the second
+        being the value of the maximum.
     """
     return find_extremum(t_0, t_1, np.argmax, function, epsilon, num)
 
-# Functions for detemining
-
 
 def semidiameter(radius, distance):
-    """Return the angular semidiameter of an object viewed at a distance from
+    """Compute the angular semidiameter of an object viewed at a distance from
     from an observer.
 
     Args:
@@ -92,9 +112,27 @@ def semidiameter(radius, distance):
 
 
 def eclipse_parameters(sat, earth, sun, time):
-    """Return parameters used to determine whether a whether a satellite is
+    """Compute the parameters used to determine whether a whether a satellite is
     in eclipse in a particular time in a pass. Based on the method described in
     https://www.celestrak.com/columns/v03n01/, "Visually Observing Earth Satellites".
+
+    Args:
+        sat: A skyfield.sgp4lib.EarthSatellite object.
+        earth: A vector (obtained by loading an ephemeris file) supporting
+            the calculation of the position of Earth relative to
+            the Solar System barycenter.
+        sun: A vector (obtained by loading an ephemeris file) supporting
+            the calculation of the position of the Sun relative to
+            the Solar System barycenter.
+        time: A skyfield.api.Time object.
+
+    Returns:
+        theta: The phase angle from the satellite to the Earth and the Sun at
+            the given time.
+        theta_e: the semidiameter of the Earth as observed from the satellite at
+            the given time.
+        theta_s: the semidiameter of the Sun as observed from the satellite at
+            the given time.
     """
     position = earth + sat
     barycentric_e = position.at(time).observe(earth)
@@ -108,30 +146,88 @@ def eclipse_parameters(sat, earth, sun, time):
 
 
 def umbral_eclipse(sat, earth, sun, time):
-    """ Return True if the satellite is in an umbral eclipse, False otherwise.
+    """ Determine if the satellite is in an umbral eclipse.
+
+    Args:
+        sat: A skyfield.sgp4lib.EarthSatellite object.
+        earth: A vector (obtained by loading an ephemeris file) supporting
+            the calculation of the position of Earth relative to
+            the Solar System barycenter.
+        sun: A vector (obtained by loading an ephemeris file) supporting
+            the calculation of the position of the Sun relative to
+            the Solar System barycenter.
+        time: A skyfield.api.Time object.
+
+    Returns:
+        True if the satellite is in umbral eclipse of the Sun by the Earth at
+            the given time, otherwise False.
     """
     theta, theta_e, theta_s = eclipse_parameters(sat, earth, sun, time)
     return np.logical_and(theta_e > theta_s, theta < (theta_e - theta_s))
 
 
 def penumbral_eclipse(sat, earth, sun, time):
-    """ Return True if the satellite is in an penumbral eclipse, False otherwise.
+    """ Determine if the satellite is in an penumbral eclipse.
+
+    Args:
+        sat: A skyfield.sgp4lib.EarthSatellite object.
+        earth: A vector (obtained by loading an ephemeris file) supporting
+            the calculation of the position of Earth relative to
+            the Solar System barycenter.
+        sun: A vector (obtained by loading an ephemeris file) supporting
+            the calculation of the position of the Sun relative to
+            the Solar System barycenter.
+        time: A skyfield.api.Time object.
+
+    Returns:
+        True if the satellite is in penumbral eclipse of the Sun by the Earth at
+            the given time, otherwise False.
     """
     theta, theta_e, theta_s = eclipse_parameters(sat, earth, sun, time)
     return np.logical_and(np.abs(theta_e - theta_s) < theta, theta < (theta_e + theta_s))
 
 
 def annular_eclipse(sat, earth, sun, time):
-    """Return True if the satellite is in an annular eclipse, False otherwise.
+    """Determine if the satellite is in an annular eclipse.
+
+    Args:
+        sat: A skyfield.sgp4lib.EarthSatellite object.
+        earth: A vector (obtained by loading an ephemeris file) supporting
+            the calculation of the position of Earth relative to
+            the Solar System barycenter.
+        sun: A vector (obtained by loading an ephemeris file) supporting
+            the calculation of the position of the Sun relative to
+            the Solar System barycenter.
+        time: A skyfield.api.Time object.
+
+    Returns:
+        True if the satellite is in annular eclipse of the Sun by the Earth at
+            the given time, otherwise False.
     """
     theta, theta_e, theta_s = eclipse_parameters(sat, earth, sun, time)
     return np.logical_and(theta_s > theta_e, theta < (theta_s - theta_e))
 
 
 def civil_twilight(topos, earth, sun, time):
-    """ Return True if the observer at the given topos is in civil twilight
-    or darker, False otherwise. Civil twilight is defined as the Sun being at
-    least SUN_ALTITUDE_CIVIL_TWILIGHT below the local horizon.
+    """ Determine if the observer at a topos is in civil twilight
+    or darker.
+
+    Civil twilight is defined as the Sun being at least SUN_ALTITUDE_CIVIL_TWILIGHT
+    below the local horizon.
+
+    Args:
+        topos: A skyfield.toposlib.Topos object.
+        earth: A vector (obtained by loading an ephemeris file) supporting
+            the calculation of the position of Earth relative to
+            the Solar System barycenter.
+        sun: A vector (obtained by loading an ephemeris file) supporting
+            the calculation of the position of the Sun relative to
+            the Solar System barycenter.
+        time: A skyfield.api.Time object.
+
+    Returns:
+        True if the observer at the given topos is in civil twilight
+            or darker, False otherwise.
     """
     location = earth + topos
     astrocentric = location.at(time).observe(sun).apparent()
@@ -140,12 +236,27 @@ def civil_twilight(topos, earth, sun, time):
 
 
 def apparent_magnitude(sat, topos, earth, sun, time):
-    """Return the apparent visual magnitude of a satellite for an observer
+    """Find the apparent visual magnitude of a satellite for an observer
     during a pass.
 
     Based on the method described in
     https://astronomy.stackexchange.com/questions/28744/calculating-the-apparent-magnitude-of-a-satellite,
     "Calculating the apparent magnitude of a satellite".
+
+    Args:
+        sat: A skyfield.sgp4lib.EarthSatellite object.
+        topos: A skyfield.toposlib.Topos object.
+        earth: A vector (obtained by loading an ephemeris file) supporting
+            the calculation of the position of Earth relative to
+            the Solar System barycenter.
+        sun: A vector (obtained by loading an ephemeris file) supporting
+            the calculation of the position of the Sun relative to
+            the Solar System barycenter.
+        time: A skyfield.api.Time object.
+
+    Returns:
+        The estimated apparent visual magnitude of the satellite at
+            the given time, for the given observer.
     """
     position = earth + sat
     observer = earth + topos
@@ -159,11 +270,27 @@ def apparent_magnitude(sat, topos, earth, sun, time):
     return SAT_INTRINSIC_MAGNITUDE + term_2 + term_3
 
 
-def satellite_pass(topos, sat, earth, sun, visible=True):
-    """Return a function to be used with skyfield.find_discrete to find
-    satellite passes for an observer within a time period.
+def satellite_pass(sat, topos, earth, sun, visible=True):
+    """Generate a function to be used to determine if a satellite is passing
+    over an observer at a given time.
 
-    Based on the definition of sunrise_sunset in skyfields.almanac.
+    Based on the definition of skyfield.almanac.sunrise_sunset.
+
+    Args:
+        topos: A skyfield.toposlib.Topos object.
+        earth: A vector (obtained by loading an ephemeris file) supporting
+            the calculation of the position of Earth relative to
+            the Solar System barycenter.
+        sun: A vector (obtained by loading an ephemeris file) supporting
+            the calculation of the position of the Sun relative to
+            the Solar System barycenter.
+        visible: If True, then only nighttime, uneclipsed passes will be
+            returned by sat_observable(), otherwise all passes with culmination
+            altitude > 10 degrees will be returned.
+
+    Returns:
+        A function that can be passed to skyfield.almanac.find_discrete to compute
+        if the given satellite and observer is observable at a given time.
     """
     difference = sat - topos
     def sat_observable(time):
@@ -181,28 +308,39 @@ def satellite_pass(topos, sat, earth, sun, visible=True):
     sat_observable.rough_period = SAT_PASS_ROUGH_PERIOD
     return sat_observable
 
-# Function to generate lists of dicts, each dict describing a satellite pass.
-
-# Return the name of a direction given an azimuth in degrees.
-# Used to mimic the way azimuth directions are rported in Heavens Above pass prediction tables.
-
 
 def direction(degrees_az):
     """Return the name of a direction given an azimuth in degrees.
 
     Used to mimic the way azimuth directions are reported in Heavens Above pass
     prediction tables.
+
+    Args:
+        degrees_az: The azimuth in degrees to map to a direction.
+
+    Returns:
+        A direction in DIRECTION_NAMES cooresponding to the degrees to which
+            the azimuth is nearest.
     """
     degrees = np.asarray(DIRECTION_DEGREES)
     idx = (np.abs(degrees - degrees_az)).argmin()
     return DIRECTION_NAMES[idx]
 
 
-def prettify_pass(pass_dict, timezone_str):
-    """Add keys and values to a dict describing a satellite pass, where
-    these keys and values represent information useful in display pass information
-    succinctly to a human reader, in emulation of the sort of tables and charts
-    in the Heavens Above web site.
+def _prettify_pass(pass_dict, timezone_str):
+    """Add keys and values to a dict describing a satellite pass
+
+    These additional keys and values represent information useful in displaying
+    pass information succinctly to a human reader, in emulation of those shown
+    in tables and charts on the Heavens Above web site.
+
+    Args:
+        pass_dict: a dictionary describing a satellite pass.
+        timezone_str: the timezone string associated with the geographical
+            coordinates associated with the pass' obsever topos.
+
+    Returns:
+        None
     """
     start_local_datetime = pass_dict['start_time'].astimezone(pytz.timezone(timezone_str))
     start_alt, start_az, start_d = pass_dict['start_position'].altaz('standard')
@@ -229,11 +367,35 @@ def prettify_pass(pass_dict, timezone_str):
     pass_dict.update(pretty_dict)
 
 
-def passes(t_0, t_1, topos, sat, earth, sun, visible=True, pretty=False):
+def passes(t_0, t_1, sat, topos, earth, sun, visible=True, pretty=False):
     """Return a list of dicts describing passes for a given satellite, given an
     observer as a specific topos and a start and end time.
+
+    Args:
+        t_0:  A skyfield.api.Time object that is the start time for the period
+            to search for passes.
+        t_1: A skyfield.api.Time object that is the end time for the period
+            to search for passes.
+        sat: A skyfield.sgp4lib.EarthSatellite object.
+        topos: A skyfield.toposlib.Topos object.
+        earth: A vector (obtained by loading an ephemeris file) supporting
+            the calculation of the position of Earth relative to
+            the Solar System barycenter.
+        sun: A vector (obtained by loading an ephemeris file) supporting
+            the calculation of the position of the Sun relative to
+            the Solar System barycenter.
+        visible: If True, then only nighttime, uneclipsed passes will be
+            returned, otherwise all passes with culmination
+            altitude > 10 degrees will be returned.
+        pretty: If True, additional human-readable data for use in charts and
+            reports will be included for each pass dict, otherwise only core
+            information (mostly in the form of skyfield.* objects) will be included.
+
+    Returns:
+        A list of dicts, each dict describing a pass for a given satellite during
+        the period between t_0 and t_1.
     """
-    time, _ = almanac.find_discrete(t_0, t_1, satellite_pass(topos, sat, earth, sun, visible))
+    time, _ = almanac.find_discrete(t_0, t_1, satellite_pass(sat, topos, earth, sun, visible))
     sat_passes = []
     difference = sat - topos
     if pretty:
@@ -247,11 +409,11 @@ def passes(t_0, t_1, topos, sat, earth, sun, visible=True, pretty=False):
                               lambda t: apparent_magnitude(sat, topos, earth, sun, t))
         if civil_twilight(topos, earth, sun, start_t) and civil_twilight(topos, earth, sun, end_t):
             if umbral_eclipse(sat, earth, sun, start_t) and umbral_eclipse(sat, earth, sun, end_t):
-                pass_type = 'eclipsed'
+                pass_type = PASS_TYPES[0]
             else:
-                pass_type = 'visible'
+                pass_type = PASS_TYPES[1]
         else:
-            pass_type = 'daylight'
+            pass_type = PASS_TYPES[2]
         basic_dict = {
             'satellite': sat,
             'topos': topos,
@@ -265,6 +427,6 @@ def passes(t_0, t_1, topos, sat, earth, sun, visible=True, pretty=False):
             'peak_magnitude': np.round(mag, 1)
         }
         if pretty:
-            prettify_pass(basic_dict, timezone_str)
+            _prettify_pass(basic_dict, timezone_str)
         sat_passes.append(basic_dict)
     return sat_passes
