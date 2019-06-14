@@ -5,7 +5,7 @@ A Python module for computing satellite passes for
 a given satellite and observer.
 
 Todo:
-    * A more robust version of find_extremeum() that can deal with local extrema.
+    * A more robust version of find_extremum() that can deal with local extrema.
     * Check that the t_0 and t_1 supplied to passes() do not fall inside a pass.
 
 """

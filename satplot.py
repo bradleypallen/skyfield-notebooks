@@ -19,11 +19,11 @@ SAT_PASS_NUM_PLOT_POINTS = 32
 
 
 def magnitude_to_marker_size(v_mag):
-    """Returns a float to be used as the size of a matplotlib plot marker representing
-    an object with a given visual megnitude.
+    """Calculate the size of a matplotlib plot marker representing an object with
+    a given visual megnitude.
 
     A third-degree polynomial was fit to a few hand-curated examples of
-    marker sizes for magnitudes, using the following code:
+    marker sizes for magnitudes, as follows:
 
     >>> x = np.array([-1.44, -0.5, 0., 1., 2., 3., 4., 5.])
     >>> y = np.array([120., 90., 60., 30., 15., 11., 6., 1.])
@@ -31,6 +31,13 @@ def magnitude_to_marker_size(v_mag):
 
     This function is valid over the range -2.0 < v <= 6.0; v < -2.0 returns
     size = 160. and v > 6.0 returns size = 1.
+
+    Args:
+        v_mag: A float representing the visual magnitude of a sky object.
+
+    Returns:
+        A float to be used as the size of a marker depicting the sky object in a
+            matplotlib.plt scatterplot.
     """
     if v_mag < -2.0:
         size = 160.0
@@ -43,9 +50,15 @@ def magnitude_to_marker_size(v_mag):
 
 
 def times_for_satellite_pass(sat_pass, num=SAT_PASS_NUM_PLOT_POINTS):
-    """
-    Returns a sequence of num evenly-spaced times during a satellite pass,
-    starting with the start of the pass and ending with the end of the pass.
+    """Compute a sequence of num evenly-spaced times during a satellite pass.
+
+    Args:
+        sat_pass: A dict representing a satellite pass.
+        num: The number of times generated to plot the pass trajectory.
+
+    Returns:
+        A skyfield.timelib.Time date array, with the first element being
+            the start of the pass and the last element being the end of the pass.
     """
     timescale = sat_pass['start_time'].ts
     jd_0, jd_1 = sat_pass['start_time'].tt, sat_pass['end_time'].tt
@@ -54,8 +67,17 @@ def times_for_satellite_pass(sat_pass, num=SAT_PASS_NUM_PLOT_POINTS):
 
 
 def altaz_for_satellite_pass(sat_pass, time):
-    """Returns the alt/az coordinates for the position of the satellite during
-    the pass at a given time
+    """Compute the alt/az coordinates for the position of the satellite during
+    given skyfield.timelib.Time date array representing a series of times during
+    the pass.
+
+    Args:
+        sat_pass: A dict representing a satellite pass.
+        time: A skyfield.timelib.Time date array.
+
+    Returns:
+        A skyfield.timelib.Time date array, with the first element being
+            the start of the pass and the last element being the end of the pass.
     """
     difference = sat_pass['satellite'] - sat_pass['topos']
     topocentric = difference.at(time)
@@ -63,12 +85,26 @@ def altaz_for_satellite_pass(sat_pass, time):
 
 
 def altaz_and_mag_for_stars(sat_pass, observer, stars):
-    """Returns arrays for the altitudes, azimuths and visual magnitudes of
+    """Compute the altitudes, azimuths and visual magnitudes of
     bright stars at the start time of a satellite pass.
 
     NOTE: this is an expensive workaround for the fact that
     Skyfield doesn't handle the one-observer-many-objects case for Apparent.altaz()
-    (see https://github.com/skyfielders/python-skyfield/issues/229)
+    (see https://github.com/skyfielders/python-skyfield/issues/229).
+
+    Args:
+        sat_pass: A dict representing a satellite pass.
+        observer: A position of the pass observer at a Topos relative to the
+            barycenter of the Solar System.
+        stars: A pandas.DataFrame containing information about stars.
+
+    Returns:
+        r_angle: An array of azimuths in radians for stars in the supplied
+            DataFrame.
+        theta: An array of altitudes in degrees for stars in the supplied
+            DataFrame.
+        mag: An array of magnitudes for stars in the supplied
+            DataFrame.
     """
     theta, r_angle, mag = [], [], []
     for i in range(len(stars)):
@@ -82,15 +118,36 @@ def altaz_and_mag_for_stars(sat_pass, observer, stars):
 
 
 def altaz_for_ephemeris_objects(observer, obj, time):
-    """Returns the alt/az coordinates for an ephemeris object for a given time
+    """Compute the alt/az coordinates for an ephemeris object for a given time
     during the satellite pass.
+
+    Args:
+        observer: A position of the pass observer at a Topos relative to the
+            barycenter of the Solar System.
+        obj: A vector (obtained by loading an ephemeris file) supporting
+            the calculation of the position of the object relative to
+            the Solar System barycenter.
+        time: A skyfield.timelib.Time
+
+    Returns:
+        An skyfield.positionlib.Apparent position for the object relative
+            to the observer.
     """
     apparent = observer.at(time).observe(obj).apparent()
     return apparent.altaz()
 
 
-def satellite_pass_chart(sat_pass, ephemeris, bright_stars):
+def satellite_pass_chart(sat_pass, ephemeris, stars):
     """Plots a polar-coordinate chart displaying the satellite pass.
+
+    Args:
+        sat_pass: A dict representing a satellite pass.
+        ephemeris: A skyfield.jpllib.SpiceKernel containing planetary ephemerides
+            data.
+        stars: A pandas.DataFrame containing information about stars.
+
+    Returns:
+        None
     """
     # Create matplotlib chart with polar projection
     axes = plt.subplot(111, projection='polar')
@@ -130,7 +187,7 @@ def satellite_pass_chart(sat_pass, ephemeris, bright_stars):
                                                                sat_pass['start_time'])
         stars_alt_degrees, stars_az_radians, stars_v = altaz_and_mag_for_stars(sat_pass,
                                                                                observer,
-                                                                               bright_stars)
+                                                                               stars)
     # Plot visualization data
     # For visible (i.e., nighttime) passes, plot stars
     if not sat_pass['pass_type'] == 'daylight':
