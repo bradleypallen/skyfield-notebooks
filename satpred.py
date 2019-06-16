@@ -12,9 +12,11 @@ Todo:
 
 
 import numpy as np
+import pandas as pd
 import pytz
 from tzwhere import tzwhere
 from skyfield import almanac, earthlib
+import skychart
 
 
 DIRECTION_NAMES = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE',
@@ -34,15 +36,18 @@ EXTREMUM_SEARCH_EPSILON = 0.5 / 86400. # A half-second fraction of a Julian day
 
 def find_extremum(t_0, t_1, extremum, function, epsilon=EXTREMUM_SEARCH_EPSILON,
                   num=EXTREMUM_SEARCH_NUM_POINTS):
-    """Find a global extremum for a function ranging over the time period of a pass.
+    """Find a global extremum for a function with a domain of skyfield.api.Time
+    for values between t_0 and t_1.
 
-    Assumes well-behaved functions with a global extremum and no other local extrema.
+    Assumes well-behaved functions with a global extremum and no other
+    local extrema.
 
     Args:
         t_0: Start time for period to be searched.
         t_1: End time for period to be searched.
-        extremum: function that computes an extremum for a function ranging over time.
-        function: a function that takes time as its single argument, returning a numeric value.
+        extremum: function that computes an extremum.
+        function: a function that takes time as its single argument, returning
+            a numeric value.
         epsilon: a float defining the distance less than which two times will
             be treated as equal.
 
@@ -50,6 +55,7 @@ def find_extremum(t_0, t_1, extremum, function, epsilon=EXTREMUM_SEARCH_EPSILON,
         Two values, the first being the time of the extremum, and the second
         being the value of the extremum.
     """
+
     timescale, jd_0, jd_1 = t_0.ts, t_0.tt, t_1.tt
     while jd_1 - jd_0 > epsilon:
         date = np.linspace(jd_0, jd_1, 5)
@@ -61,13 +67,14 @@ def find_extremum(t_0, t_1, extremum, function, epsilon=EXTREMUM_SEARCH_EPSILON,
 
 def find_minimum(t_0, t_1, function, epsilon=EXTREMUM_SEARCH_EPSILON,
                  num=EXTREMUM_SEARCH_NUM_POINTS):
-    """Find a global minimum for a function ranging over a ranging over
-    the time period of a pass.
+    """Find a global minimum for a function with a domain of skyfield.api.Time
+    for values between t_0 and t_1.
 
     Args:
         t_0: Start time for period to be searched.
         t_1: End time for period to be searched.
-        function: a function that takes time as its single argument, returning a numeric value.
+        function: a function that takes time as its single argument, returning
+            a numeric value.
         epsilon: a float defining the distance less than which two times will
             be treated as equal.
 
@@ -75,18 +82,20 @@ def find_minimum(t_0, t_1, function, epsilon=EXTREMUM_SEARCH_EPSILON,
         Two values, the first being the time of the minimum, and the second
         being the value of the minimum.
     """
+
     return find_extremum(t_0, t_1, np.argmin, function, epsilon, num)
 
 
 def find_maximum(t_0, t_1, function, epsilon=EXTREMUM_SEARCH_EPSILON,
                  num=EXTREMUM_SEARCH_NUM_POINTS):
-    """Find a global maximum for a function ranging over a ranging over
-    the time period of a pass.
+    """Find a global maximum for a function with a domain of skyfield.api.Time
+    for values between t_0 and t_1.
 
     Args:
         t_0: Start time for period to be searched.
         t_1: End time for period to be searched.
-        function: a function that takes time as its single argument, returning a numeric value.
+        function: a function that takes time as its single argument, returning
+            a numeric value.
         epsilon: a float defining the distance less than which two times will
             be treated as equal.
 
@@ -94,6 +103,7 @@ def find_maximum(t_0, t_1, function, epsilon=EXTREMUM_SEARCH_EPSILON,
         Two values, the first being the time of the maximum, and the second
         being the value of the maximum.
     """
+
     return find_extremum(t_0, t_1, np.argmax, function, epsilon, num)
 
 
@@ -108,13 +118,15 @@ def semidiameter(radius, distance):
     Returns:
         The semidiameter of the object in radians.
     """
+
     return np.arcsin(radius / distance)
 
 
 def eclipse_parameters(sat, earth, sun, time):
     """Compute the parameters used to determine whether a whether a satellite is
-    in eclipse in a particular time in a pass. Based on the method described in
-    https://www.celestrak.com/columns/v03n01/, "Visually Observing Earth Satellites".
+    in eclipse in a particular time in a pass. Based on the method described by
+    T.S. Kelso in "Visually Observing Earth Satellites",
+    https://www.celestrak.com/columns/v03n01/.
 
     Args:
         sat: A skyfield.sgp4lib.EarthSatellite object.
@@ -134,6 +146,7 @@ def eclipse_parameters(sat, earth, sun, time):
         theta_s: the semidiameter of the Sun as observed from the satellite at
             the given time.
     """
+
     position = earth + sat
     barycentric_e = position.at(time).observe(earth)
     barycentric_s = position.at(time).observe(sun)
@@ -162,8 +175,10 @@ def umbral_eclipse(sat, earth, sun, time):
         True if the satellite is in umbral eclipse of the Sun by the Earth at
             the given time, otherwise False.
     """
+
     theta, theta_e, theta_s = eclipse_parameters(sat, earth, sun, time)
-    return np.logical_and(theta_e > theta_s, theta < (theta_e - theta_s))
+    return np.logical_and(theta_e > theta_s,
+                          theta < (theta_e - theta_s))
 
 
 def penumbral_eclipse(sat, earth, sun, time):
@@ -183,8 +198,10 @@ def penumbral_eclipse(sat, earth, sun, time):
         True if the satellite is in penumbral eclipse of the Sun by the Earth at
             the given time, otherwise False.
     """
+
     theta, theta_e, theta_s = eclipse_parameters(sat, earth, sun, time)
-    return np.logical_and(np.abs(theta_e - theta_s) < theta, theta < (theta_e + theta_s))
+    return np.logical_and(np.abs(theta_e - theta_s) < theta,
+                          theta < (theta_e + theta_s))
 
 
 def annular_eclipse(sat, earth, sun, time):
@@ -204,16 +221,18 @@ def annular_eclipse(sat, earth, sun, time):
         True if the satellite is in annular eclipse of the Sun by the Earth at
             the given time, otherwise False.
     """
+
     theta, theta_e, theta_s = eclipse_parameters(sat, earth, sun, time)
-    return np.logical_and(theta_s > theta_e, theta < (theta_s - theta_e))
+    return np.logical_and(theta_s > theta_e,
+                          theta < (theta_s - theta_e))
 
 
 def civil_twilight(topos, earth, sun, time):
     """ Determine if the observer at a topos is in civil twilight
     or darker.
 
-    Civil twilight is defined as the Sun being at least SUN_ALTITUDE_CIVIL_TWILIGHT
-    below the local horizon.
+    Civil twilight is defined as the Sun being at least
+    SUN_ALTITUDE_CIVIL_TWILIGHT below the local horizon.
 
     Args:
         topos: A skyfield.toposlib.Topos object.
@@ -229,6 +248,7 @@ def civil_twilight(topos, earth, sun, time):
         True if the observer at the given topos is in civil twilight
             or darker, False otherwise.
     """
+
     location = earth + topos
     astrocentric = location.at(time).observe(sun).apparent()
     alt, _, _ = astrocentric.altaz('standard')
@@ -239,9 +259,9 @@ def apparent_magnitude(sat, topos, earth, sun, time):
     """Find the apparent visual magnitude of a satellite for an observer
     during a pass.
 
-    Based on the method described in
-    https://astronomy.stackexchange.com/questions/28744/calculating-the-apparent-magnitude-of-a-satellite,
-    "Calculating the apparent magnitude of a satellite".
+    Based on the method described in "Calculating the apparent magnitude of
+    a satellite",
+    https://astronomy.stackexchange.com/questions/28744/calculating-the-apparent-magnitude-of-a-satellite.
 
     Args:
         sat: A skyfield.sgp4lib.EarthSatellite object.
@@ -258,6 +278,7 @@ def apparent_magnitude(sat, topos, earth, sun, time):
         The estimated apparent visual magnitude of the satellite at
             the given time, for the given observer.
     """
+
     position = earth + sat
     observer = earth + topos
     barycentric_o = position.at(time).observe(observer)
@@ -277,6 +298,7 @@ def satellite_pass(sat, topos, earth, sun, visible=True):
     Based on the definition of skyfield.almanac.sunrise_sunset.
 
     Args:
+        sat: A skyfield.sgp4lib.EarthSatellite object.
         topos: A skyfield.toposlib.Topos object.
         earth: A vector (obtained by loading an ephemeris file) supporting
             the calculation of the position of Earth relative to
@@ -289,9 +311,11 @@ def satellite_pass(sat, topos, earth, sun, visible=True):
             altitude > 10 degrees will be returned.
 
     Returns:
-        A function that can be passed to skyfield.almanac.find_discrete to compute
-        if the given satellite and observer is observable at a given time.
+        A function that can be passed to skyfield.almanac.find_discrete to
+        compute whether the given satellite and observer is observable
+        at a given time.
     """
+
     difference = sat - topos
     def sat_observable(time):
         topocentric = difference.at(time)
@@ -322,111 +346,145 @@ def direction(degrees_az):
         A direction in DIRECTION_NAMES cooresponding to the degrees to which
             the azimuth is nearest.
     """
+
     degrees = np.asarray(DIRECTION_DEGREES)
     idx = (np.abs(degrees - degrees_az)).argmin()
     return DIRECTION_NAMES[idx]
 
 
-def _prettify_pass(pass_dict, timezone_str):
-    """Add keys and values to a dict describing a satellite pass
+class SatellitePass:
 
-    These additional keys and values represent information useful in displaying
-    pass information succinctly to a human reader, in emulation of those shown
-    in tables and charts on the Heavens Above web site.
+    def __init__(self, sat, topos, timezone_str, start_time, culmination_time,
+                 end_time, pass_type, peak_magnitude):
 
-    Args:
-        pass_dict: a dictionary describing a satellite pass.
-        timezone_str: the timezone string associated with the geographical
-            coordinates associated with the pass' obsever topos.
+        difference = sat - topos
 
-    Returns:
-        None
-    """
-    start_local_datetime = pass_dict['start_time'].astimezone(pytz.timezone(timezone_str))
-    start_alt, start_az, start_d = pass_dict['start_position'].altaz('standard')
-    culm_local_datetime = pass_dict['culmination_time'].astimezone(pytz.timezone(timezone_str))
-    culm_alt, culm_az, culm_d = pass_dict['culmination_position'].altaz('standard')
-    end_local_datetime = pass_dict['end_time'].astimezone(pytz.timezone(timezone_str))
-    end_alt, end_az, end_d = pass_dict['end_position'].altaz('standard')
-    pretty_dict = {
-        'date': start_local_datetime.isoformat(' ', timespec='seconds')[:11],
-        'timezone': timezone_str,
-        'start': start_local_datetime.isoformat(' ', timespec='seconds')[11:19],
-        'start_alt': int(np.round(start_alt.degrees)),
-        'start_az': direction(start_az.degrees),
-        'start_d': int(np.round(start_d.km)),
-        'culm': culm_local_datetime.isoformat(' ', timespec='seconds')[11:19],
-        'culm_alt': int(np.round(culm_alt.degrees)),
-        'culm_az': direction(culm_az.degrees),
-        'culm_d': int(np.round(culm_d.km)),
-        'end': end_local_datetime.isoformat(' ', timespec='seconds')[11:19],
-        'end_alt': int(np.round(end_alt.degrees)),
-        'end_az': direction(end_az.degrees),
-        'end_d': int(np.round(end_d.km))
-    }
-    pass_dict.update(pretty_dict)
+        # These instance variables contain the main information describing
+        # the satellite pass, represented using values of types
+        # skyfield.sgp4lib.EarthSatellite, skyfield.toposlib.Topos,
+        # skyfield.timelib.Time, and skyfield.positionlib.Geocentric.
+
+        self.satellite = sat
+        self.topos = topos
+        self.start_time = start_time
+        self.start_position = difference.at(start_time)
+        self.culmination_time = culmination_time
+        self.culmination_position = difference.at(culmination_time)
+        self.end_time = end_time
+        self.end_position = difference.at(end_time)
+
+        # These additional instance variables represent information useful in
+        # displaying pass information succinctly to a human reader, represented
+        # using floats and strings, in emulation of those shown in tables and
+        # charts on the Heavens Above web site.
+
+        start_local_datetime = self.start_time.astimezone(pytz.timezone(timezone_str))
+        start_alt, start_az, start_d = self.start_position.altaz('standard')
+        culm_local_datetime = self.culmination_time.astimezone(pytz.timezone(timezone_str))
+        culm_alt, culm_az, culm_d = self.culmination_position.altaz('standard')
+        end_local_datetime = self.end_time.astimezone(pytz.timezone(timezone_str))
+        end_alt, end_az, end_d = self.end_position.altaz('standard')
+
+        self.date = start_local_datetime.isoformat(' ', timespec='seconds')[:10]
+        self.timezone = timezone_str
+        self.start = start_local_datetime.isoformat(' ', timespec='seconds')[11:19]
+        self.start_alt = int(np.round(start_alt.degrees))
+        self.start_az = direction(start_az.degrees)
+        self.start_d = int(np.round(start_d.km))
+        self.culm = culm_local_datetime.isoformat(' ', timespec='seconds')[11:19]
+        self.culm_alt = int(np.round(culm_alt.degrees))
+        self.culm_az = direction(culm_az.degrees)
+        self.culm_d = int(np.round(culm_d.km))
+        self.end = end_local_datetime.isoformat(' ', timespec='seconds')[11:19]
+        self.end_alt = int(np.round(end_alt.degrees))
+        self.end_az = direction(end_az.degrees)
+        self.end_d = int(np.round(end_d.km))
+        self.pass_type = pass_type
+        self.peak_magnitude = np.round(peak_magnitude, 1)
 
 
-def passes(t_0, t_1, sat, topos, earth, sun, visible=True, pretty=False):
-    """Return a list of dicts describing passes for a given satellite, given an
-    observer as a specific topos and a start and end time.
+    def to_json(self):
+        return {
+            'satellite': self.satellite,
+            'topos': self.topos,
+            'start_time': self.start_time,
+            'start_position': self.start_position,
+            'culmination_time': self.culmination_time,
+            'culmination_position': self.culmination_position,
+            'end_time': self.end_time,
+            'end_position': self.end_position,
+            'date': self.date,
+            'timezone': self.timezone,
+            'start': self.start,
+            'start_alt': self.start_alt,
+            'start_az': self.start_az,
+            'start_d': self.start_d,
+            'culm': self.culm,
+            'culm_alt': self.culm_alt,
+            'culm_az': self.culm_az,
+            'culm_d': self.culm_d,
+            'end': self.end,
+            'end_alt': self.end_alt,
+            'end_az': self.end_az,
+            'end_d': self.end_d,
+            'pass_type': self.pass_type,
+            'peak_magnitude': self.peak_magnitude
+        }
 
-    Args:
-        t_0:  A skyfield.api.Time object that is the start time for the period
-            to search for passes.
-        t_1: A skyfield.api.Time object that is the end time for the period
-            to search for passes.
-        sat: A skyfield.sgp4lib.EarthSatellite object.
-        topos: A skyfield.toposlib.Topos object.
-        earth: A vector (obtained by loading an ephemeris file) supporting
-            the calculation of the position of Earth relative to
-            the Solar System barycenter.
-        sun: A vector (obtained by loading an ephemeris file) supporting
-            the calculation of the position of the Sun relative to
-            the Solar System barycenter.
-        visible: If True, then only nighttime, uneclipsed passes will be
-            returned, otherwise all passes with culmination
-            altitude > 10 degrees will be returned.
-        pretty: If True, additional human-readable data for use in charts and
-            reports will be included for each pass dict, otherwise only core
-            information (mostly in the form of skyfield.* objects) will be included.
 
-    Returns:
-        A list of dicts, each dict describing a pass for a given satellite during
-        the period between t_0 and t_1.
-    """
-    time, _ = almanac.find_discrete(t_0, t_1, satellite_pass(sat, topos, earth, sun, visible))
-    sat_passes = []
-    difference = sat - topos
-    if pretty:
+class SatelliteEphemeris:
+
+    def __init__(self, t_0, t_1, sat, topos, earth, sun, visible=True):
+        """Create a SatelliteEphemeris that describes passes for
+        a given satellite, observer at a specific topos, a start and end time,
+        data describing the positions of the Earth and Sun, and whether
+        only visible passes or all passes should be included.
+
+        Args:
+            t_0:  A skyfield.api.Time object that is the start time for the period
+                to search for passes.
+            t_1: A skyfield.api.Time object that is the end time for the period
+                to search for passes.
+            sat: A skyfield.sgp4lib.EarthSatellite object.
+            topos: A skyfield.toposlib.Topos object.
+            earth: A vector (obtained by loading an ephemeris file) supporting
+                the calculation of the position of Earth relative to
+                the Solar System barycenter.
+            sun: A vector (obtained by loading an ephemeris file) supporting
+                the calculation of the position of the Sun relative to
+                the Solar System barycenter.
+            visible: If True, then only nighttime, uneclipsed passes will be
+                returned, otherwise all passes with culmination
+                altitude > 10 degrees will be returned.
+
+        Returns:
+            An instance of a SatelliteEphemeris class.
+        """
+        time, _ = almanac.find_discrete(t_0, t_1,
+                                        satellite_pass(sat, topos, earth,
+                                                       sun, visible))
+        difference = sat - topos
+        self.passes = []
         timezone_str = tzwhere.tzwhere().tzNameAt(topos.latitude.degrees,
                                                   topos.longitude.degrees)
-    for i in range(1, len(time), 2):
-        start_t, end_t = time[i-1], time[i] # TODO: check that y[i-1] and not y[i]
-        culm_t, _ = find_maximum(start_t, end_t,
-                                 lambda t: difference.at(t).altaz('standard')[0].degrees)
-        _, mag = find_minimum(start_t, end_t,
-                              lambda t: apparent_magnitude(sat, topos, earth, sun, t))
-        if civil_twilight(topos, earth, sun, start_t) and civil_twilight(topos, earth, sun, end_t):
-            if umbral_eclipse(sat, earth, sun, start_t) and umbral_eclipse(sat, earth, sun, end_t):
-                pass_type = PASS_TYPES[0]
+        for i in range(1, len(time), 2):
+            start_t, end_t = time[i-1], time[i] # TODO: check that y[i-1] and not y[i]
+            culm_t, _ = find_maximum(start_t, end_t,
+                                     lambda t: difference.at(t).altaz('standard')[0].degrees)
+            _, mag = find_minimum(start_t, end_t,
+                                  lambda t: apparent_magnitude(sat, topos,
+                                                               earth, sun, t))
+            if civil_twilight(topos, earth, sun, start_t) and civil_twilight(topos, earth, sun, end_t):
+                if umbral_eclipse(sat, earth, sun, start_t) and umbral_eclipse(sat, earth, sun, end_t):
+                    pass_type = PASS_TYPES[0]
+                else:
+                    pass_type = PASS_TYPES[1]
             else:
-                pass_type = PASS_TYPES[1]
-        else:
-            pass_type = PASS_TYPES[2]
-        basic_dict = {
-            'satellite': sat,
-            'topos': topos,
-            'start_time': start_t,
-            'start_position': difference.at(start_t),
-            'culmination_time': culm_t,
-            'culmination_position': difference.at(culm_t),
-            'end_time': end_t,
-            'end_position': difference.at(end_t),
-            'pass_type': pass_type,
-            'peak_magnitude': np.round(mag, 1)
-        }
-        if pretty:
-            _prettify_pass(basic_dict, timezone_str)
-        sat_passes.append(basic_dict)
-    return sat_passes
+                pass_type = PASS_TYPES[2]
+            self.passes.append(SatellitePass(sat, topos, timezone_str, start_t,
+                                             culm_t, end_t, pass_type,
+                                             np.round(mag, 1)))
+
+
+    def to_dataframe(self):
+        return pd.DataFrame([p.to_json() for p in self.passes])
