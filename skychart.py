@@ -4,9 +4,6 @@
 A Python module for generating charts displaying the sky for a given observer
 and time.
 
-Todo:
-    * RA/dec displays of satellite passes.
-
 """
 
 
@@ -89,6 +86,50 @@ class AltAzFullSkyChart:
         topocentric = difference.at(time)
         sat_alt, sat_az, _ = topocentric.altaz()
         self.ax.plot(sat_az.radians, 90.-sat_alt.degrees, color)
+
+
+    def display(self):
+        plt.show()
+
+
+class RADecSkyChart:
+
+    def __init__(self, observer_position, time, ra_lim, dec_lim):
+        plt.ioff()
+        self.fig = plt.figure()
+        self.ax = self.fig.add_subplot(111)
+        self.ax.grid()
+        self.ax.set_xlim(ra_lim[0], ra_lim[1])
+        self.ax.set_ylim(dec_lim[0], dec_lim[1])
+        self.ax.tick_params(direction='in')
+        self.ax.set_xticks(np.linspace(ra_lim[0], ra_lim[1], 5))
+        self.ax.set_yticks(np.linspace(dec_lim[0], dec_lim[1], 5))
+        self.observer_position = observer_position
+        self.time = time
+
+
+    def plot_stars(self, stars, color='k'):
+        stars_v = stars['magnitude'].tolist()
+        astrometric = self.observer_position.at(self.time).observe(api.Star.from_dataframe(stars))
+        ra, dec, _ = astrometric.radec()
+        self.ax.scatter(ra.hours, dec.degrees, [_magnitude_to_marker_size(v) for v in stars_v], color)
+
+
+    def plot_ephemeris_object(self, obj, size, color='y'):
+        astrometric = self.observer_position.at(self.time).observe(obj)
+        ra, dec, _ = astrometric.radec()
+        self.ax.scatter(ra.hours, dec.degrees, color)
+
+
+    def plot_satellite_pass(self, satellite_pass, num=32, color='grey'):
+        timescale = satellite_pass.start_time.ts
+        jd_0, jd_1 = satellite_pass.start_time.tt, satellite_pass.end_time.tt
+        date = np.linspace(jd_0, jd_1, num)
+        time = timescale.tt(jd=date)
+        difference = satellite_pass.satellite - satellite_pass.topos
+        topocentric = difference.at(time)
+        sat_ra, sat_dec, _ = topocentric.radec()
+        self.ax.plot(sat_ra.hours, sat_dec.degrees, color)
 
 
     def display(self):
