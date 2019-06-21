@@ -11,6 +11,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from skyfield import api
 
+
 def _magnitude_to_marker_size(v_mag):
     """Calculate the size of a matplotlib plot marker representing an object with
     a given visual megnitude.
@@ -44,6 +45,20 @@ def _magnitude_to_marker_size(v_mag):
 
 
 class AltAzFullSkyChart:
+    """A matplotlib plot of the whole sky in alt/az coordinates.
+
+    Args:
+        observer_position: A position of the pass observer at a Topos, relative to the
+            barycenter of the Solar System.
+        time: A skyfield.timelib.Time object.: 
+
+    Attributes:
+        fig: A matplotlib.plt.Figure object.
+        ax: A matplotlib.plt.Axes object.
+        observer_position: A position of the pass observer at a Topos, relative to the
+            barycenter of the Solar System.
+        time: A skyfield.timelib.Time object.
+    """
 
     def __init__(self, observer_position, time):
         plt.ioff()
@@ -59,6 +74,21 @@ class AltAzFullSkyChart:
 
 
     def plot_stars(self, stars, color='k'):
+        """ Plot a set of stars on the chart.
+
+        Args:
+            stars: A pandas.DataFrame containing star records from a catalog.
+            color: A string indicating the color in which to plot markers 
+                representing stars.
+
+        Note:
+            This implements an expensive workaround for the fact that
+                Skyfield doesn't handle the one-observer-many-objects case for Apparent.altaz().
+                See https://github.com/skyfielders/python-skyfield/issues/229.
+
+        Returns:
+            None.
+        """
         theta, r_angle, stars_v = [], [], []
         for i in range(len(stars)):
             star = api.Star.from_dataframe(stars.iloc[i])
@@ -72,12 +102,38 @@ class AltAzFullSkyChart:
 
 
     def plot_ephemeris_object(self, obj, size, color='y'):
+        """ Plot a solar system object on the chart.
+
+        Args:
+            obj: A vector (obtained by loading an ephemeris file) supporting
+                the calculation of the position of the given object relative to
+                the Solar System barycenter.
+            size: A intger indicating the size of the marker to use to display 
+                the object.
+            color: A string indicating the color in which to plot markers 
+                representing stars.
+
+        Returns:
+            None
+        """
         apparent = self.observer_position.at(self.time).observe(obj).apparent()
         alt, az, _ = apparent.altaz()
         self.ax.scatter(az.radians, 90.-alt.degrees, size, color)
 
 
     def plot_satellite_pass(self, satellite_pass, num=32, color='grey'):
+        """ Plot a set of stars on the chart.
+
+        Args:
+            satellite_pass: A satpred.SatellitePass object. 
+            num: A integer indicating how many coordinates to use in plotting
+                a line on the chart representing the satellite's path across
+                the sky during the pass.
+            color: The color to use to plot the satellite's path.
+
+        Returns:
+            None
+        """
         timescale = satellite_pass.start_time.ts
         jd_0, jd_1 = satellite_pass.start_time.tt, satellite_pass.end_time.tt
         date = np.linspace(jd_0, jd_1, num)
@@ -89,10 +145,32 @@ class AltAzFullSkyChart:
 
 
     def display(self):
+        """ Show the chart,
+
+        Returns:
+            None
+        """
         plt.show()
 
 
 class RADecSkyChart:
+    """A matplotlib plot of a section of the sky in right ascension/declination coordinates.
+
+    Args:
+        observer_position: A position of the pass observer at a Topos, relative to the
+            barycenter of the Solar System.
+        time: A skyfield.timelib.Time object.: 
+        ra_lim: A pair of right ascensions in decimal hours.
+        dec_lim: A pair of declinations in decimal degrees.
+
+    Attributes:
+        fig: A matplotlib.plt.Figure object.
+        ax: A matplotlib.plt.Axes object.
+        observer_position: A position of the pass observer at a Topos, relative to the
+            barycenter of the Solar System.
+        time: A skyfield.timelib.Time object.
+    """
+
 
     def __init__(self, observer_position, time, ra_lim, dec_lim):
         plt.ioff()
@@ -109,6 +187,16 @@ class RADecSkyChart:
 
 
     def plot_stars(self, stars, color='k'):
+        """ Plot a set of stars on the chart.
+
+        Args:
+            stars: A pandas.DataFrame containing star records from a catalog.
+            color: A string indicating the color in which to plot markers 
+                representing stars.
+
+        Returns:
+            None.
+        """
         stars_v = stars['magnitude'].tolist()
         astrometric = self.observer_position.at(self.time).observe(api.Star.from_dataframe(stars))
         ra, dec, _ = astrometric.radec()
@@ -116,12 +204,38 @@ class RADecSkyChart:
 
 
     def plot_ephemeris_object(self, obj, size, color='y'):
+        """ Plot a solar system object on the chart.
+
+        Args:
+            obj: A vector (obtained by loading an ephemeris file) supporting
+                the calculation of the position of the given object relative to
+                the Solar System barycenter.
+            size: A intger indicating the size of the marker to use to display 
+                the object.
+            color: A string indicating the color in which to plot markers 
+                representing stars.
+
+        Returns:
+            None
+        """
         astrometric = self.observer_position.at(self.time).observe(obj)
         ra, dec, _ = astrometric.radec()
         self.ax.scatter(ra.hours, dec.degrees, color)
 
 
     def plot_satellite_pass(self, satellite_pass, num=32, color='grey'):
+        """ Plot a set of stars on the chart.
+
+        Args:
+            satellite_pass: A satpred.SatellitePass object. 
+            num: A integer indicating how many coordinates to use in plotting
+                a line on the chart representing the satellite's path across
+                the sky during the pass.
+            color: The color to use to plot the satellite's path.
+
+        Returns:
+            None
+        """
         timescale = satellite_pass.start_time.ts
         jd_0, jd_1 = satellite_pass.start_time.tt, satellite_pass.end_time.tt
         date = np.linspace(jd_0, jd_1, num)
@@ -133,4 +247,9 @@ class RADecSkyChart:
 
 
     def display(self):
+        """ Show the chart,
+
+        Returns:
+            None
+        """
         plt.show()
