@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """extremum.py
 
-Routines for calculating the extremum of a given function of time.
+Routines for calculating the extremum during a time period of a function of time.
 
 Todo:
     * A more robust version of find_extremum() that can deal with local extrema.
@@ -87,4 +87,3 @@ def find_maximum(t_0, t_1, function, epsilon=_EXTREMUM_SEARCH_EPSILON,
     """
 
     return find_extremum(t_0, t_1, np.argmax, function, epsilon, num)
-
