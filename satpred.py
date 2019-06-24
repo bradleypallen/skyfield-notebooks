@@ -232,7 +232,7 @@ class SatelliteEphemeris:
 
     def __init__(self, t_0, t_1, sat, topos, earth, sun, visible=True):
         self.sat_minimum_observable_altitude = 10.0
-        self.sat_pass_rough_period = 0.01
+        self.sat_pass_rough_period = 0.0042 # average pass duration of 6 minutes
         time, _ = almanac.find_discrete(t_0, t_1,
                                         self._satellite_pass(sat, topos, earth,
                                                              sun, visible))
