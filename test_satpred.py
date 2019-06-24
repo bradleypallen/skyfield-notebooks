@@ -10,9 +10,9 @@ import skychart
 def test_satpred_1():
     tle_line_1 = "1 25544U 98067A   19174.96066161 -.00001641  00000-0 -19667-4 0  9994"
     tle_line_2 = "2 25544  51.6426 327.6827 0008340  79.1947  72.7878 15.51216338176304"
-    load = api.Loader('./data')
-    ts = load.timescale()
-    ephemeris = load('de421.bsp')
+    #load = api.Loader('./data')
+    ts = api.load.timescale()
+    ephemeris = api.load('de421.bsp')
     sun = ephemeris['sun']
     earth = ephemeris['earth']
     iss = api.EarthSatellite(tle_line_1, tle_line_2, name='ISS (ZARYA)', ts=ts)
