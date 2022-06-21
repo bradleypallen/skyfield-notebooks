@@ -1,5 +1,5 @@
 matplotlib==3.0.3
-numpy==1.16.3
+numpy==1.22.0
 tzwhere==3.0.3
 skyfield==1.10
 pytz==2019.1
